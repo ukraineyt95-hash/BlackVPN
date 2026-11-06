@@ -22,3 +22,13 @@ rustc-ice-*.txt
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+
+# ---- ByeByeDPI-Rust ----
+# артефакты сборки APK
+target/byebyedpi-apk/
+*.apk
+*.aab
+# локальный конфиг и лог (создаются при запуске desktop-версии)
+byebyedpi-config.json
+byebyedpi-config.json.tmp
+byebyedpi.log
