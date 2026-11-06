@@ -19,6 +19,14 @@ jobs:
   check:
     name: Check & test (host)
     runs-on: ubuntu-latest
+
+    # Нужны для публикации диагностики ошибок компиляции (см.
+    # .github/scripts/report-cargo-errors.py): логи шага лежат в blob storage
+    # и доступны не из любой сети, а check run читается через обычный API.
+    permissions:
+      contents: read
+      checks: write
+
     steps:
       - uses: actions/checkout@v4
 
@@ -43,12 +51,14 @@ jobs:
           cargo test --all-features --lib --bins 2>&1 | tee /tmp/test.log
           rc=${PIPESTATUS[0]}
           if [ "$rc" -ne 0 ]; then
-            # Job logs live on blob storage that some networks cannot reach, so
-            # publish the first few compiler errors as check-run annotations.
             sed 's/\x1b\[[0-9;]*m//g' /tmp/test.log | awk '
               /^error/ { n++; if (n > 3) exit; left = 8 }
               left > 0 { print "::error::" $0; left-- }
             '
+            GITHUB_TOKEN="${{ github.token }}" \
+            GITHUB_REPOSITORY="${{ github.repository }}" \
+            python3 .github/scripts/report-cargo-errors.py /tmp/test.log \
+              "${{ github.event.pull_request.head.sha || github.sha }}" || true
           fi
           exit "$rc"
 

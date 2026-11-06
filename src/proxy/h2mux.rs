@@ -677,14 +677,19 @@ where
         .insert(stream_id, state.clone());
 
     // Запускаем обработку потока.
+    //
+    // `state` после `move` ещё нужен для `task`, поэтому в задачу уходит
+    // клон, а `Arc<Mux>` клонируется один раз на задачу (внутрь `multiplexer`
+    // передаётся ещё один клон — `Arc` не `Copy`).
     let mux_clone = mux.clone();
+    let state_for_task = state.clone();
     let task = tokio::spawn(async move {
-        if let Err(e) = multiplexer(mux_clone.clone(), stream_id, state.clone(), headers, end).await
-        {
+        let mux_for_task = mux_clone.clone();
+        if let Err(e) = multiplexer(mux_clone, stream_id, state_for_task, headers, end).await {
             crate::flog_dbg!("H2Mux stream {stream_id}: {e}");
-            let _ = mux_clone.reset(stream_id, RST_INTERNAL);
+            let _ = mux_for_task.reset(stream_id, RST_INTERNAL);
         }
-        mux_clone.streams.lock().unwrap().remove(&stream_id);
+        mux_for_task.streams.lock().unwrap().remove(&stream_id);
     });
     *state.task.lock().unwrap() = Some(task);
 
