@@ -17,12 +17,10 @@ use crate::tunnel::TunFd;
 
 /// Promotion сервиса в foreground через JNI (только Android).
 #[cfg(target_os = "android")]
-#[path = "platform/android.rs"]
 mod android;
 
 /// Запросить разрешение POST_NOTIFICATIONS (API 33+). На desktop — no-op.
 #[cfg(target_os = "android")]
-#[path = "platform/foreground.rs"]
 pub mod foreground;
 
 #[cfg(target_os = "android")]
@@ -41,7 +39,6 @@ pub fn request_notification_permission() {
 pub fn request_notification_permission() {}
 
 #[cfg(not(target_os = "android"))]
-#[path = "platform/desktop.rs"]
 mod desktop;
 
 #[cfg(target_os = "android")]

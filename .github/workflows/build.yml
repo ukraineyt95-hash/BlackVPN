@@ -38,7 +38,19 @@ jobs:
         continue-on-error: true
 
       - name: cargo test
-        run: cargo test --all-features --lib --bins
+        run: |
+          set +e
+          cargo test --all-features --lib --bins 2>&1 | tee /tmp/test.log
+          rc=${PIPESTATUS[0]}
+          if [ "$rc" -ne 0 ]; then
+            # Job logs live on blob storage that some networks cannot reach, so
+            # publish the first few compiler errors as check-run annotations.
+            sed 's/\x1b\[[0-9;]*m//g' /tmp/test.log | awk '
+              /^error/ { n++; if (n > 3) exit; left = 8 }
+              left > 0 { print "::error::" $0; left-- }
+            '
+          fi
+          exit "$rc"
 
   build-apk:
     name: Build APK
