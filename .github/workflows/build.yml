@@ -38,7 +38,20 @@ jobs:
         continue-on-error: true
 
       - name: cargo test
-        run: cargo test --all-features --lib --bins
+        run: |
+          set +e
+          cargo test --all-features --lib --bins 2>&1 | tee /tmp/test.log
+          rc=${PIPESTATUS[0]}
+          if [ "$rc" -ne 0 ]; then
+            # Surface the real error as check-run annotations: job logs live on
+            # blob storage that some networks cannot reach.
+            grep -n -E "^error|^error\[|failed to select|does not have that feature|could not compile" /tmp/test.log \
+              | head -n 15 | while IFS= read -r line; do
+                echo "::error::$line"
+              done
+            tail -n 80 /tmp/test.log
+          fi
+          exit "$rc"
 
   build-apk:
     name: Build APK
