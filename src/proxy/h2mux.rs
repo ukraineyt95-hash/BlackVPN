@@ -231,7 +231,7 @@ impl Mux {
     ///
     /// Возвращает `Ok(false)`, если поток больше не существует.
     async fn send_data(&self, stream_id: u32, data: &[u8], end: bool) -> io::Result<bool> {
-        let stream = self.with_stream(stream_id, |s| s.clone());
+        let stream = self.stream_state(stream_id);
 
         if !data.is_empty() {
             let Some(stream) = stream else {
@@ -271,14 +271,14 @@ impl Mux {
         Ok(true)
     }
 
-    /// Выполнить замыкание с `&mut` на состояние потока.
+    /// Взять собственную ссылку на состояние потока.
     ///
     /// Нужно, чтобы избежать гонки при «взял сокет -> await -> положил
     /// обратно»: между `.take()` и обратной записью релей уже мог
-    /// подключиться и получить `None`.
-    fn with_stream<R>(&self, stream_id: u32, f: impl FnOnce(&StreamState) -> R) -> Option<R> {
-        let guard = self.streams.lock().unwrap();
-        guard.get(&stream_id).map(|s| f(s))
+    /// подключиться и получить `None`. Поэтому наружу отдаётся `Arc`, а не
+    /// заимствование: гард `streams` отпускается сразу.
+    fn stream_state(&self, stream_id: u32) -> Option<Arc<StreamState>> {
+        self.streams.lock().unwrap().get(&stream_id).cloned()
     }
 
     /// Сбросить поток: RST_STREAM + освободить ресурсы.
@@ -712,7 +712,7 @@ async fn on_data(
         ));
     }
 
-    let Some(state) = mux.with_stream(stream_id, |s| s.clone()) else {
+    let Some(state) = mux.stream_state(stream_id) else {
         let _ = mux.reset(stream_id, RST_STREAM_CLOSED);
         return Ok(());
     };
@@ -934,7 +934,7 @@ async fn multiplexer(
     *state.writer.lock().await = StreamWriter::Ready(writer);
 
     // Накопленные до CONNECT байты ушли — возвращаем клиенту окно за них.
-    refund_window(mux, stream_id, &state, flushed);
+    refund_window(&mux, stream_id, &state, flushed);
 
     // Читаем ответ и отправляем клиенту.
     let mut buf = vec![0u8; 16384];

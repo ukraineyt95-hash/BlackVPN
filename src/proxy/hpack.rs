@@ -268,7 +268,7 @@ fn decode_string(data: &[u8], offset: usize) -> Result<(Vec<u8>, usize), HpackEr
 /// бинарный, поэтому скорость достаточная (это не горячий путь).
 fn huffman_decode(raw: &[u8]) -> Result<Vec<u8>, HpackError> {
     // Строим таблицу один раз на процесс.
-    static TABLE: std::sync::OnceLock<Vec<(u8, u32, u16)>>> = std::sync::OnceLock::new();
+    static TABLE: std::sync::OnceLock<Vec<(u8, u32, u16)>> = std::sync::OnceLock::new();
     let table = TABLE.get_or_init(|| {
         let mut t: Vec<(u8, u32, u16)> = (0..257u16)
             .map(|sym| {
