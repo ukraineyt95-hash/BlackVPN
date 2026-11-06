@@ -25,10 +25,17 @@ eframe = { version = "0.32.3", default-features = false, features = [
     "android-native-activity",
 ] }
 egui = "0.32.3"
+# winit 0.30 has no `std` feature: `std` belongs to its optional
+# `raw-window-handle` edge (reachable only via `rwh_05`), so naming it here makes
+# cargo fail during dependency resolution instead of at build time.
+# The list below is winit's own `default` set (x11 + wayland + dlopen + adwaita
+# decorations) plus `rwh_06`, which eframe/egui-winit require.
 winit = { version = "0.30.12", default-features = false, features = [
-    "std",
+    "rwh_06",
     "x11",
     "wayland",
+    "wayland-dlopen",
+    "wayland-csd-adwaita",
 ] }
 
 tokio = { version = "1.40", features = [
