@@ -45,10 +45,11 @@ jobs:
           if [ "$rc" -ne 0 ]; then
             # Surface the real error as check-run annotations: job logs live on
             # blob storage that some networks cannot reach.
-            grep -n -E "^error|^error\[|failed to select|does not have that feature|could not compile" /tmp/test.log \
-              | head -n 15 | while IFS= read -r line; do
-                echo "::error::$line"
-              done
+            # One annotation per compiler error block (error line + context).
+            sed 's/\x1b\[[0-9;]*m//g' /tmp/test.log | awk '
+              /^error/ { n++; if (n > 3) exit; left = 8 }
+              left > 0 { print "::error::" $0; left-- }
+            '
             tail -n 80 /tmp/test.log
           fi
           exit "$rc"
