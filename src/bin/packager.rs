@@ -294,7 +294,7 @@ fn run() -> Result<(), String> {
             .join("bin")
             .join(clang_name(triple));
         if clang.exists() {
-            let var = match *abi {
+            let var = match abi.as_str() {
                 "arm64-v8a" => "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER",
                 "armeabi-v7a" => "CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER",
                 "x86_64" => "CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER",

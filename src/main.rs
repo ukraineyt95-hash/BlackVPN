@@ -11,7 +11,7 @@ use byebyedpi::{
     config::AppConfig,
     gui::{ByeByeDpiApp, PlatformHolder},
     logger,
-    platform::DesktopPlatform,
+    platform::{DesktopPlatform, Platform},
     vpn::VpnController,
     AppHandles,
 };
