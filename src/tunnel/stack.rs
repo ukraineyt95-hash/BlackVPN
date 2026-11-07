@@ -484,38 +484,52 @@ async fn run(fd: TunFd, control: TunnelControl) -> io::Result<()> {
                     };
                     crate::flog_dbg!("DPI: {} сегмент(ов)", plan.len());
                     let mut consumed = 0usize;
+                    // Куски складываем во временный список: `plan` заимствует
+                    // `to_net`, поэтому писать в `out_plan` прямо в цикле нельзя.
+                    let mut pieces: Vec<Vec<u8>> = Vec::with_capacity(plan.len());
                     for chunk in &plan {
                         match chunk {
                             dpi::Chunk::Junk(j) => {
                                 if !j.is_empty() {
-                                    tcp_conns[i].out_plan.push_back(j.clone());
+                                    pieces.push(j.clone());
                                 }
                             }
                             dpi::Chunk::Data { start, end } => {
                                 if end > start {
-                                    tcp_conns[i]
-                                        .out_plan
-                                        .push_back(tcp_conns[i].to_net[*start..*end].to_vec());
+                                    pieces.push(tcp_conns[i].to_net[*start..*end].to_vec());
                                     consumed = consumed.max(*end);
                                 }
                             }
                         }
                     }
+                    for piece in pieces {
+                        tcp_conns[i].out_plan.push_back(piece);
+                    }
                     tcp_conns[i].to_net.drain(..consumed);
                     tcp_conns[i].out_dpi_done = true;
                 }
 
-                if let Some(up) = tcp_conns[i].upstream.as_ref() {
+                if tcp_conns[i].upstream.is_some() {
                     // Сначала выливаем подготовленный DPI-план, затем сырые данные.
+                    // Поток берём на время одного `try_write`: если держать
+                    // `&TcpConn`, изменение `out_plan` в том же цикле не даст
+                    // одолжить запись (E0502).
                     let mut broken = false;
-                    while let Some(front) = tcp_conns[i].out_plan.front_mut() {
-                        match up.try_write(front) {
+                    while !tcp_conns[i].out_plan.is_empty() {
+                        let written = {
+                            let up = tcp_conns[i].upstream.as_ref().expect("проверено выше");
+                            let front = tcp_conns[i].out_plan.front().expect("не пусто");
+                            up.try_write(front)
+                        };
+                        match written {
                             Ok(0) => break,
-                            Ok(n) if n == front.len() => {
+                            Ok(n) if n == tcp_conns[i].out_plan.front().map_or(0, Vec::len) => {
                                 tcp_conns[i].out_plan.pop_front();
                             }
                             Ok(n) => {
-                                front.drain(..n);
+                                if let Some(front) = tcp_conns[i].out_plan.front_mut() {
+                                    front.drain(..n);
+                                }
                             }
                             Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
                             Err(_) => {
@@ -594,22 +608,25 @@ async fn run(fd: TunFd, control: TunnelControl) -> io::Result<()> {
                     };
                     crate::flog_dbg!("DPI (в приложение): {} сегмент(ов)", plan.len());
                     let mut consumed = 0usize;
+                    // См. комментарий в направлении «приложение -> сеть».
+                    let mut pieces: Vec<Vec<u8>> = Vec::with_capacity(plan.len());
                     for chunk in &plan {
                         match chunk {
                             dpi::Chunk::Junk(j) => {
                                 if !j.is_empty() {
-                                    tcp_conns[i].in_plan.push_back(j.clone());
+                                    pieces.push(j.clone());
                                 }
                             }
                             dpi::Chunk::Data { start, end } => {
                                 if end > start {
-                                    tcp_conns[i]
-                                        .in_plan
-                                        .push_back(tcp_conns[i].to_app[*start..*end].to_vec());
+                                    pieces.push(tcp_conns[i].to_app[*start..*end].to_vec());
                                     consumed = consumed.max(*end);
                                 }
                             }
                         }
+                    }
+                    for piece in pieces {
+                        tcp_conns[i].in_plan.push_back(piece);
                     }
                     tcp_conns[i].to_app.drain(..consumed);
                     tcp_conns[i].dpi_done = true;

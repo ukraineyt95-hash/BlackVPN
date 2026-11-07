@@ -24,7 +24,7 @@ impl ClientHello {
     }
 
     /// Имя хоста как строка.
-    pub fn sni(&self, buf: &[u8]) -> Option<&str> {
+    pub fn sni<'a>(&self, buf: &'a [u8]) -> Option<&'a str> {
         let (s, e) = self.sni_range()?;
         std::str::from_utf8(buf.get(s..e)?).ok()
     }

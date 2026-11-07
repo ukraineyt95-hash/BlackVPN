@@ -93,7 +93,10 @@ impl ProxyContext {
     pub fn basic_expected(&self) -> Option<String> {
         self.auth
             .as_ref()
-            .map(|(u, p)| format!("Basic {}", base64_encode(format!("{u}:{p}").as_bytes())))
+            .map(|auth| {
+                let (u, p) = &**auth;
+                format!("Basic {}", base64_encode(format!("{u}:{p}").as_bytes()))
+            })
     }
 }
 

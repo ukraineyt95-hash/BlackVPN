@@ -614,7 +614,7 @@ pub const BRIDGE_SUPER: &str = "Landroid/net/VpnService;";
 
 /// Склеивает две инструкции вызова (по три слова каждая) и добавляет
 /// `return-void`.
-fn concat_insns(a: &[u32; 3], b: &[u32; 3]) -> Vec<u32> {
+fn concat_insns(a: &[u32], b: &[u32]) -> Vec<u32> {
     let mut out = Vec::with_capacity(7);
     out.extend_from_slice(a);
     out.extend_from_slice(b);
