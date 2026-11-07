@@ -224,14 +224,18 @@ impl DexBuilder {
         let class_idx = types.iter().position(|t| *t == spec.class).unwrap() as u32;
         let super_idx = types.iter().position(|t| *t == spec.superclass).unwrap() as u32;
 
+        // Все методы моста имеют прототип `()V`, и он единственный в пуле
+        // `protos`, поэтому индекс прототипа всегда 0.
+        const PROTO_INDEX: u32 = 0;
+
         // method_ids: сначала собственные, затем методы суперкласса.
         let mut refs: Vec<(u32, u32, u32)> = Vec::new();
         let mut own: Vec<(u32, MethodSpec)> = Vec::new();
         for m in &spec.methods {
-            refs.push((class_idx, m.proto as u32, pos(m.name)));
+            refs.push((class_idx, PROTO_INDEX, pos(m.name)));
         }
         for name in ["<init>", "onCreate", "onRevoke"] {
-            refs.push((super_idx, 0, pos(name)));
+            refs.push((super_idx, PROTO_INDEX, pos(name)));
         }
         refs.sort();
         refs.dedup();
@@ -239,7 +243,7 @@ impl DexBuilder {
             let idx = refs
                 .iter()
                 .position(|(c, p, n)| {
-                    *c == class_idx && *p == m.proto as u32 && *n == pos(m.name)
+                    *c == class_idx && *p == PROTO_INDEX && *n == pos(m.name)
                 })
                 .unwrap();
             own.push((idx as u32, m.clone()));

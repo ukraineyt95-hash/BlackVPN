@@ -514,7 +514,9 @@ async fn run(fd: TunFd, control: TunnelControl) -> io::Result<()> {
                             Ok(n) if n == front.len() => {
                                 tcp_conns[i].out_plan.pop_front();
                             }
-                            Ok(n) => front.drain(..n),
+                            Ok(n) => {
+                                front.drain(..n);
+                            }
                             Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
                             Err(_) => {
                                 broken = true;
@@ -652,7 +654,9 @@ fn drain_to_app(socket: &mut tcp::Socket, plan: &mut VecDeque<Vec<u8>>, raw: &mu
             Ok(n) if n == front.len() => {
                 plan.pop_front();
             }
-            Ok(n) => front.drain(..n),
+            Ok(n) => {
+                front.drain(..n);
+            }
         }
     }
 

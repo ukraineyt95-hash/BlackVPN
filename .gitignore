@@ -32,3 +32,7 @@ target/byebyedpi-apk/
 byebyedpi-config.json
 byebyedpi-config.json.tmp
 byebyedpi.log
+
+# Python bytecode (CI helper scripts)
+__pycache__/
+*.pyc

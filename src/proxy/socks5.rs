@@ -95,7 +95,7 @@ pub async fn handle(
     let cmd = header[1];
 
     // Адрес читаем всегда (даже для UDP ASSOCIATE — клиент присылает 0.0.0.0:0).
-    let (host, port) = proxy::read_address(stream).await?;
+    let (host, port) = proxy::read_address(&mut stream).await?;
 
     match cmd {
         0x03 => handle_udp_associate(&mut stream, peer, host, port).await,
