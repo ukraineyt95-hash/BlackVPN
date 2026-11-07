@@ -51,19 +51,48 @@ def read_blocks(path):
     return blocks, lines
 
 
+# Строки, которые объясняют падение уже *запущенных* тестов, а не сборки.
+FAILURE_LINE = re.compile(
+    r"panicked at|assertion|^\s*left:|^\s*right:|^failures:|FAILED|^\s+\w+::\w+$|test result:"
+)
+
+
+def failure_lines(lines):
+    """Выбрать из лога строки про упавшие тесты."""
+    picked = [ln for ln in lines if FAILURE_LINE.search(ln)]
+    # Убираем дубли, сохраняя порядок, и ограничиваем объём.
+    seen, out = set(), []
+    for ln in picked:
+        if ln not in seen:
+            seen.add(ln)
+            out.append(ln)
+    return out[:120]
+
+
 def build_payload(path, sha):
     blocks, lines = read_blocks(path)
+    fails = failure_lines(lines)
+    parts = []
     if blocks:
-        text = "\n\n".join(blocks)
         title = "cargo test failed"
+        parts.append("\n\n".join(blocks))
     else:
-        text = "\n".join(lines[-150:])
-        title = "cargo test failed (no `error:` lines found)"
+        title = "cargo test failed"
+    if fails:
+        parts.append("=== упавшие тесты ===\n" + "\n".join(fails))
+    # Хвост лога нужен всегда: у ошибок времени выполнения нет блока `error:`.
+    parts.append("=== последние строки лога ===\n" + "\n".join(lines[-120:]))
+    text = "\n\n".join(parts)
 
     if len(text) > MAX_TEXT:
         text = text[:MAX_TEXT] + "\n… (обрезано)"
 
-    summary = blocks[0].splitlines()[0] if blocks else title
+    if blocks:
+        summary = blocks[0].splitlines()[0]
+    elif fails:
+        summary = fails[0]
+    else:
+        summary = lines[-1] if lines else title
     return {
         "name": "cargo-test-diagnostics",
         "head_sha": sha,
